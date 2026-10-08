@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fantasy HQ</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏈</text></svg>">
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --ink: #15181d; --muted: #667085; --line: #e4e7ec;
+    --accent: #1d6f42; --accent-soft: #e6f4ec; --bad: #b42318; --bad-soft: #fdecea; --warn: #9a6700; --warn-soft: #fff6db;
+    --espn: #c8102e; --sleeper: #2d6ae3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1216; --card: #181c22; --ink: #e8eaed; --muted: #98a2b3; --line: #2a3039;
+      --accent: #4cc38a; --accent-soft: #15301f; --bad: #f97066; --bad-soft: #3a1714; --warn: #f5c451; --warn-soft: #3a2f10;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 20px 16px 8px; max-width: 1100px; margin: 0 auto; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 22px; margin: 0; }
+  .sub { color: var(--muted); font-size: 13px; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 5px 12px; cursor: pointer; }
+  main { max-width: 1100px; margin: 0 auto; padding: 8px 16px 40px; }
+  .todo { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+  .todo h2 { font-size: 15px; margin: 0 0 8px; }
+  .todo ul { margin: 0; padding-left: 18px; }
+  .todo li { margin: 3px 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 500px), 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .card-head { padding: 12px 16px 10px; border-bottom: 1px solid var(--line); }
+  .card-head .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .card-head h3 { margin: 0; font-size: 16px; }
+  .card-head a { color: inherit; text-decoration: none; }
+  .tag { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 99px; color: #fff; text-transform: uppercase; letter-spacing: .03em; }
+  .tag.espn { background: var(--espn); } .tag.sleeper { background: var(--sleeper); } .tag.keeper { background: var(--accent); }
+  .score { display: flex; justify-content: space-between; margin-top: 8px; font-size: 14px; }
+  .score b { font-size: 18px; }
+  .tabs { display: flex; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  .tabs button { border: 0; border-radius: 0; background: none; padding: 9px 14px; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; }
+  .tabs button.on { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+  .pane { padding: 12px 16px 16px; }
+  .pane h4 { margin: 12px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .pane h4:first-child { margin-top: 0; }
+  .alert { padding: 7px 10px; border-radius: 8px; margin: 5px 0; font-size: 14px; }
+  .alert.bad { background: var(--bad-soft); color: var(--bad); } .alert.warn { background: var(--warn-soft); color: var(--warn); }
+  .ok { color: var(--accent); font-size: 14px; }
+  .move { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 14px; flex-wrap: wrap; }
+  .in { color: var(--accent); font-weight: 600; } .out { color: var(--muted); text-decoration: line-through; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td, th { padding: 4px 4px; text-align: left; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.me td { font-weight: 600; background: var(--accent-soft); }
+  tr.chg td { color: var(--accent); font-weight: 600; }
+  .pos { display: inline-block; min-width: 34px; font-size: 11px; color: var(--muted); }
+  .inj { font-size: 11px; font-weight: 700; color: var(--bad); margin-left: 4px; }
+  .trade { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
+  .trade .sides { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; }
+  .trade .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+  .trade p { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+  .kp { font-size: 11px; color: var(--muted); display: block; }
+  .err { color: var(--bad); padding: 12px 16px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  #loading { text-align: center; padding: 60px 0; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏈 Fantasy HQ</h1>
+  <span class="sub" id="meta"></span>
+  <button id="refresh" style="margin-left:auto">Refresh</button>
+</header>
+<main>
+  <div id="loading">Pulling your 6 leagues…</div>
+  <div id="app"></div>
+</main>
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const num = (n) => (n == null ? '–' : Number(n).toFixed(1));
+const rec = (t) => `${t.wins}-${t.losses}${t.ties ? '-' + t.ties : ''}`;
+const ago = (ms) => { const h = (Date.now() - ms) / 36e5; return h < 1 ? 'just now' : h < 24 ? `${Math.round(h)}h ago` : `${Math.round(h / 24)}d ago`; };
+
+function player(p, extra = '') {
+  if (!p) return '<span class="muted">empty</span>';
+  return `<span class="pos">${esc(p.pos)}</span>${esc(p.name)} <span class="muted">${esc(p.nfl || '')}</span>${p.injury ? `<span class="inj">${esc(p.injury)}</span>` : ''}${extra}`;
+}
+
+function overview(L) {
+  let h = '<h4>Heads up</h4>';
+  h += L.alerts.length ? L.alerts.map((a) => `<div class="alert ${a.level}">${esc(a.text)}</div>`).join('') : '<div class="ok">✓ No injury or bye problems in your lineup</div>';
+  h += '<h4>Lineup moves this week</h4>';
+  if (L.lineup.moves.length) {
+    h += L.lineup.moves.map((m) => `<div class="move"><span class="in">▲ Start ${esc(m.in.name)}</span> <span class="muted">(${num(m.in.proj)})</span>${m.out ? ` <span class="out">${esc(m.out.name)}</span> <span class="muted">(${num(m.out.proj)})</span>` : ''}</div>`).join('');
+    h += `<div class="muted" style="margin-top:6px">About +${num(L.lineup.gain)} projected points.</div>`;
+  } else h += '<div class="ok">✓ Your lineup is already optimal</div>';
+  h += '<h4>Waiver wire</h4>';
+  h += L.waivers.length
+    ? L.waivers.map((w) => `<div class="move"><span class="in">+ ${esc(w.name)}</span> <span class="muted">${esc(w.pos)} · ${num(w.value)} pts/wk${w.upgradeOver > 0 ? ` · +${num(w.upgradeOver)} over your starter` : ''}${w.drop ? ` · drop ${esc(w.drop.name)}?` : ''}</span></div>`).join('')
+    : '<div class="muted">Nothing on waivers beats what you have.</div>';
+  return h;
+}
+
+function lineupTab(L) {
+  return `<table><tr><th>Slot</th><th>Best lineup</th><th class="n">Proj</th></tr>${L.lineup.best
+    .map((x) => `<tr class="${x.changed ? 'chg' : ''}"><td>${esc(x.slot)}</td><td>${player(x.player)}</td><td class="n">${num(x.player?.proj)}</td></tr>`).join('')}
+    <tr><td></td><td><b>Total</b></td><td class="n"><b>${num(L.lineup.projected)}</b></td></tr></table>
+    <div class="muted" style="margin-top:6px">Green rows are changes from your current lineup.</div>`;
+}
+
+function tradesTab(L) {
+  if (!L.trades.length) return '<div class="muted">No trade clearly helps both sides right now.</div>';
+  const side = (ps) => ps.map((p) => `<div>${player(p)}${p.keeper ? `<span class="kp">Keeper: costs R${p.keeper.cost}, plays like R${p.keeper.marketRound}</span>` : ''}</div>`).join('');
+  return L.trades.map((t) => `<div class="trade"><div class="lbl">With ${esc(t.team)}</div>
+    <div class="sides"><div><div class="lbl">You give</div>${side(t.give)}</div><div><div class="lbl">You get</div>${side(t.get)}</div></div>
+    <p>${esc(t.why)}</p></div>`).join('');
+}
+
+function keeperTab(L) {
+  const k = L.keeper;
+  return `<div class="muted">You keep ${k.rules.max} player a year; he costs a pick ${k.rules.roundsEarlier} round earlier than where he was drafted.</div>
+  <table style="margin-top:8px"><tr><th>Player</th><th class="n">Drafted</th><th class="n">Keep cost</th><th class="n">Plays like</th><th class="n">Surplus</th></tr>
+  ${k.candidates.map((c, i) => `<tr class="${i === 0 ? 'me' : ''}"><td>${player(c)}</td><td class="n">${c.draftedRound ? 'R' + c.draftedRound : 'FA'}</td><td class="n">R${c.cost}</td><td class="n">R${c.marketRound}</td><td class="n">${c.surplus ? '+' + c.surplus : '0'}</td></tr>`).join('')}</table>
+  <div class="muted" style="margin-top:6px">"Plays like" is where his value ranks among rostered players in this league. ${esc(k.undraftedAssumption)}</div>`;
+}
+
+function leagueTab(L) {
+  let h = `<table><tr><th>#</th><th>Team</th><th class="n">Record</th><th class="n">PF</th></tr>${L.standings
+    .map((s) => `<tr class="${s.name === L.myTeam.name ? 'me' : ''}"><td>${s.rank}</td><td>${esc(s.name)}</td><td class="n">${rec(s)}</td><td class="n">${num(s.pf)}</td></tr>`).join('')}</table>`;
+  h += '<h4>Recent moves</h4>';
+  h += L.transactions.length
+    ? L.transactions.map((t) => `<div class="move"><b>${esc(t.type)}</b> ${esc(t.text)} <span class="muted">${ago(t.when)}</span></div>`).join('')
+    : '<div class="muted">No recent activity.</div>';
+  return h;
+}
+
+function card(L, i) {
+  if (L.error) return `<div class="card"><div class="card-head"><div class="top"><h3>${esc(L.name)}</h3><span class="tag ${L.platform}">${L.platform}</span></div></div><div class="err">Couldn't load: ${esc(L.error)}</div></div>`;
+  const m = L.matchup;
+  const tabs = [['Overview', overview], ['Lineup', lineupTab], ['Trades', tradesTab], ...(L.keeper ? [['Keeper', keeperTab]] : []), ['League', leagueTab]];
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.innerHTML = `<div class="card-head">
+      <div class="top"><h3><a href="${esc(L.url)}" target="_blank" rel="noopener">${esc(L.name)}</a></h3>
+        <span>${L.keeper ? '<span class="tag keeper">keeper</span> ' : ''}<span class="tag ${L.platform}">${L.platform}</span></span></div>
+      <div class="sub">${esc(L.myTeam.name)} · ${rec(L.myTeam)} · ${ordinal(L.myTeam.rank)} of ${L.myTeam.size}${L.ppr != null && L.ppr !== 1 ? ` · <b>${L.ppr} PPR</b>` : ''}</div>
+      ${m ? `<div class="score"><span>You <b>${num(m.myPts)}</b></span><span class="muted">vs</span><span>${esc(m.oppName)} <b>${num(m.oppPts)}</b></span></div>
+      <div class="sub">Projected: you ${num(L.lineup.projected)} · them ${num(m.oppProj)}</div>` : ''}
+    </div>
+    <div class="tabs">${tabs.map(([n], j) => `<button data-t="${j}" class="${j ? '' : 'on'}">${n}${n === 'Trades' && L.trades.length ? ` (${L.trades.length})` : ''}</button>`).join('')}</div>
+    <div class="pane"></div>`;
+  const pane = $('.pane', el);
+  const show = (j) => { pane.innerHTML = tabs[j][1](L); el.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', +b.dataset.t === j)); };
+  el.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => show(+b.dataset.t)));
+  show(0);
+  return el;
+}
+
+const ordinal = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
+
+function todo(data) {
+  const items = [];
+  for (const L of data.leagues) {
+    if (L.error) { items.push(`<b>${esc(L.name)}</b>: couldn't load (${esc(L.error)})`); continue; }
+    for (const a of L.alerts.filter((a) => a.level === 'bad')) items.push(`<b>${esc(L.name)}</b>: ${esc(a.text)}`);
+    if (L.lineup.moves.length) items.push(`<b>${esc(L.name)}</b>: ${L.lineup.moves.length} lineup change${L.lineup.moves.length > 1 ? 's' : ''} worth +${num(L.lineup.gain)} pts (start ${L.lineup.moves.map((m) => esc(m.in.name)).join(', ')})`);
+  }
+  const trades = data.leagues.reduce((s, L) => s + (L.trades?.length || 0), 0);
+  return `<div class="todo"><h2>${items.length ? 'To do before kickoff' : '✓ All lineups look good'}</h2>${items.length ? `<ul>${items.map((i) => `<li>${i}</li>`).join('')}</ul>` : ''}
+    <div class="muted" style="margin-top:6px">${trades} trade idea${trades === 1 ? '' : 's'} across your leagues. Projections are PPR from Sleeper, ESPN's own for ESPN lineups.</div></div>`;
+}
+
+async function load() {
+  $('#loading').style.display = '';
+  $('#app').innerHTML = '';
+  try {
+    let key = '';
+    try { key = localStorage.getItem('ffkey') || ''; } catch {}
+    let res = await fetch('/api/dashboard', { cache: 'no-store', headers: { 'x-dashboard-key': key } });
+    if (res.status === 401) {
+      key = prompt('Password') || '';
+      try { localStorage.setItem('ffkey', key); } catch {}
+      res = await fetch('/api/dashboard', { cache: 'no-store', headers: { 'x-dashboard-key': key } });
+    }
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    $('#meta').textContent = `Week ${data.week} · ${data.season} · updated ${new Date(data.generatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    const app = $('#app');
+    app.innerHTML = todo(data);
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    data.leagues.forEach((L, i) => { const c = card(L, i); grid.append(typeof c === 'string' ? Object.assign(document.createElement('div'), { innerHTML: c }).firstElementChild : c); });
+    app.append(grid);
+  } catch (e) {
+    $('#app').innerHTML = `<div class="err">Couldn't load your leagues: ${esc(e.message)}</div>`;
+  } finally {
+    $('#loading').style.display = 'none';
+  }
+}
+$('#refresh').onclick = load;
+load();
+</script>
+</body>
+</html>
