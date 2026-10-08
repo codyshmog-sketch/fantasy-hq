@@ -39,7 +39,7 @@
   .score { display: flex; justify-content: space-between; margin-top: 8px; font-size: 14px; }
   .score b { font-size: 18px; }
   .tabs { display: flex; border-bottom: 1px solid var(--line); overflow-x: auto; }
-  .tabs button { border: 0; border-radius: 0; background: none; padding: 9px 14px; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; }
+  .tabs button { border: 0; border-radius: 0; background: none; padding: 9px 10px; font-size: 14px; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; }
   .tabs button.on { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
   .pane { padding: 12px 16px 16px; }
   .pane h4 { margin: 12px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
@@ -55,6 +55,7 @@
   td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
   tr.me td { font-weight: 600; background: var(--accent-soft); }
   tr.chg td { color: var(--accent); font-weight: 600; }
+  tr.out-row td { color: var(--bad); }
   .pos { display: inline-block; min-width: 34px; font-size: 11px; color: var(--muted); }
   .inj { font-size: 11px; font-weight: 700; color: var(--bad); margin-left: 4px; }
   .trade { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
@@ -115,15 +116,25 @@ function overview(L) {
     h += L.lineup.moves.map((m) => `<div class="move"><span class="in">▲ Start ${esc(m.in.name)}</span> <span class="muted">(${num(m.in.proj)})</span>${m.out ? ` <span class="out">${esc(m.out.name)}</span> <span class="muted">(${num(m.out.proj)})</span>` : ''}</div>`).join('');
     h += `<div class="muted" style="margin-top:6px">About +${num(L.lineup.gain)} projected points.</div>`;
   } else h += '<div class="ok">✓ Your lineup is already optimal</div>';
-  if (L.news?.length) {
-    h += '<h4>Player news</h4>';
-    h += L.news.map((n) => `<div class="move"><b>${esc(n.player)}</b> <span>${n.url ? `<a href="${esc(n.url)}" target="_blank" rel="noopener" style="color:inherit">${esc(n.headline)}</a>` : esc(n.headline)}</span> <span class="muted">${ago(n.when)}</span></div>`).join('');
-  }
   h += '<h4>Waiver wire</h4>';
   h += L.waivers.length
     ? L.waivers.map((w) => `<div class="move"><span class="in">+ ${esc(w.name)}</span> <span class="muted">${esc(w.pos)} · ${num(w.value)} pts/wk${w.upgradeOver > 0 ? ` · +${num(w.upgradeOver)} over your starter` : ''}${w.drop ? ` · drop ${esc(w.drop.name)}?` : ''}</span></div>`).join('')
     : '<div class="muted">Nothing on waivers beats what you have.</div>';
   return h;
+}
+
+function currentTab(L) {
+  const cur = L.lineup.current || [];
+  const total = cur.reduce((s, x) => s + (x.player?.proj || 0), 0);
+  return `<table><tr><th>Slot</th><th>Your lineup now</th><th class="n">Proj</th></tr>${cur
+    .map((x) => `<tr class="${x.benched ? 'out-row' : ''}"><td>${esc(x.slot)}</td><td>${player(x.player)}</td><td class="n">${num(x.player?.proj)}</td></tr>`).join('')}
+    <tr><td></td><td><b>Total</b></td><td class="n"><b>${num(total)}</b></td></tr></table>
+    <div class="muted" style="margin-top:6px">${cur.some((x) => x.benched) ? 'Red rows are players the Best lineup tab would bench.' : '✓ This is already your best lineup.'}</div>`;
+}
+
+function newsTab(L) {
+  if (!L.news?.length) return '<div class="muted">No news about your players in the last 5 days.</div>';
+  return L.news.map((n) => `<div class="move" style="display:block"><b>${esc(n.player)}</b> <span class="muted">${esc(n.pos)} · ${ago(n.when)}</span><br>${n.url ? `<a href="${esc(n.url)}" target="_blank" rel="noopener" style="color:inherit">${esc(n.headline)}</a>` : esc(n.headline)}${n.blurb ? `<div class="muted">${esc(n.blurb)}</div>` : ''}</div>`).join('');
 }
 
 function lineupTab(L) {
@@ -163,7 +174,7 @@ function leagueTab(L) {
 function card(L, i) {
   if (L.error) return `<div class="card"><div class="card-head"><div class="top"><h3>${esc(L.name)}</h3><span class="tag ${L.platform}">${L.platform}</span></div></div><div class="err">Couldn't load: ${esc(L.error)}</div></div>`;
   const m = L.matchup;
-  const tabs = [['Overview', overview], ['Lineup', lineupTab], ['Trades', tradesTab], ...(L.keeper ? [['Keeper', keeperTab]] : []), ['League', leagueTab]];
+  const tabs = [['Overview', overview], ['My lineup', currentTab], ['Best lineup', lineupTab], ['Trades', tradesTab], ['News', newsTab], ...(L.keeper ? [['Keeper', keeperTab]] : []), ['League', leagueTab]];
   const el = document.createElement('div');
   el.className = 'card';
   el.innerHTML = `<div class="card-head">
@@ -173,7 +184,7 @@ function card(L, i) {
       ${m ? `<div class="score"><span>You <b>${num(m.myPts)}</b></span><span class="muted">vs</span><span>${esc(m.oppName)} <b>${num(m.oppPts)}</b></span></div>
       <div class="sub">Projected: you ${num(L.lineup.projected)} · them ${num(m.oppProj)}</div>` : ''}
     </div>
-    <div class="tabs">${tabs.map(([n], j) => `<button data-t="${j}" class="${j ? '' : 'on'}">${n}${n === 'Trades' && L.trades.length ? ` (${L.trades.length})` : ''}</button>`).join('')}</div>
+    <div class="tabs">${tabs.map(([n], j) => `<button data-t="${j}" class="${j ? '' : 'on'}">${n}${n === 'Trades' && L.trades.length ? ` (${L.trades.length})` : ''}${n === 'News' && L.news?.length ? ` (${L.news.length})` : ''}</button>`).join('')}</div>
     <div class="pane"></div>`;
   const pane = $('.pane', el);
   const show = (j) => { pane.innerHTML = tabs[j][1](L); el.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', +b.dataset.t === j)); };
