@@ -11,6 +11,7 @@ if (fs.existsSync('.env')) {
 }
 if (process.env.MOCK) await import('./test/mock-fetch.js');
 const { buildDashboard } = await import('./lib/dashboard.js');
+const { ask } = await import('./lib/ask.js');
 
 const port = process.env.PORT || 3000;
 http
@@ -24,6 +25,17 @@ http
       } catch (e) {
         console.error(e);
         res.writeHead(500, { 'content-type': 'application/json' }).end(JSON.stringify({ error: e.message }));
+      }
+      return;
+    }
+    if (req.url.startsWith('/api/ask')) {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      try {
+        const out = await ask(JSON.parse(body));
+        res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(out));
+      } catch (e) {
+        res.writeHead(e.status || 500, { 'content-type': 'application/json' }).end(JSON.stringify({ error: e.message }));
       }
       return;
     }

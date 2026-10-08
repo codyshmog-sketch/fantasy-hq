@@ -65,6 +65,16 @@
   .err { color: var(--bad); padding: 12px 16px; }
   .muted { color: var(--muted); font-size: 13px; }
   #loading { text-align: center; padding: 60px 0; color: var(--muted); }
+  .ask { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+  .ask h2 { font-size: 15px; margin: 0 0 8px; }
+  .ask .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ask select { font: inherit; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); max-width: 100%; }
+  .ask textarea { width: 100%; min-height: 64px; margin: 8px 0; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); resize: vertical; }
+  .ask button.go { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+  .msg { padding: 8px 10px; border-radius: 8px; margin: 8px 0; font-size: 14px; white-space: pre-wrap; }
+  .msg.you { background: var(--bg); }
+  .msg.claude { background: var(--accent-soft); }
+  .trade .askbtn { margin-top: 8px; font-size: 13px; padding: 3px 10px; }
 </style>
 </head>
 <body>
@@ -75,6 +85,13 @@
 </header>
 <main>
   <div id="loading">Pulling your 6 leagues…</div>
+  <section class="ask" id="ask" hidden>
+    <h2>💬 Ask Claude</h2>
+    <div class="muted">Paste a trade offer you got, or ask anything about one of your leagues. Claude sees every roster in that league.</div>
+    <div id="thread"></div>
+    <textarea id="q" placeholder="e.g. I was offered Kenneth Walker for Tet McMillan and James Cook. Should I take it?"></textarea>
+    <div class="row"><select id="lg"></select><button class="go" id="send">Ask</button><button id="clear">New chat</button></div>
+  </section>
   <div id="app"></div>
 </main>
 <script>
@@ -114,9 +131,10 @@ function lineupTab(L) {
 function tradesTab(L) {
   if (!L.trades.length) return '<div class="muted">No trade clearly helps both sides right now.</div>';
   const side = (ps) => ps.map((p) => `<div>${player(p)}${p.keeper ? `<span class="kp">Keeper: costs R${p.keeper.cost}, plays like R${p.keeper.marketRound}</span>` : ''}</div>`).join('');
-  return L.trades.map((t) => `<div class="trade"><div class="lbl">With ${esc(t.team)}</div>
+  const fair = (b) => (b == null ? '' : b >= 1.08 ? ' · you win on paper' : b >= 0.93 ? ' · fair on paper' : ' · you pay a little extra');
+  return L.trades.map((t) => `<div class="trade"><div class="lbl">With ${esc(t.team)}${fair(t.balance)}</div>
     <div class="sides"><div><div class="lbl">You give</div>${side(t.give)}</div><div><div class="lbl">You get</div>${side(t.get)}</div></div>
-    <p>${esc(t.why)}</p></div>`).join('');
+    <p>${esc(t.why)}</p><button class="askbtn" data-league="${esc(L.id)}" data-q="${esc(`Grade this trade idea: I give ${t.give.map((p) => p.name).join(' + ')} to ${t.team} for ${t.get.map((p) => p.name).join(' + ')}. Is it fair, and would they take it?`)}">Ask Claude about this</button></div>`).join('');
 }
 
 function keeperTab(L) {
@@ -177,15 +195,7 @@ async function load() {
   $('#loading').style.display = '';
   $('#app').innerHTML = '';
   try {
-    let key = '';
-    try { key = localStorage.getItem('ffkey') || ''; } catch {}
-    let res = await fetch('/api/dashboard', { cache: 'no-store', headers: { 'x-dashboard-key': key } });
-    if (res.status === 401) {
-      key = prompt('Password') || '';
-      try { localStorage.setItem('ffkey', key); } catch {}
-      res = await fetch('/api/dashboard', { cache: 'no-store', headers: { 'x-dashboard-key': key } });
-    }
-    const data = await res.json();
+    const data = await api('/api/dashboard');
     if (data.error) throw new Error(data.error);
     $('#meta').textContent = `Week ${data.week} · ${data.season} · updated ${new Date(data.generatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
     const app = $('#app');
@@ -194,12 +204,80 @@ async function load() {
     grid.className = 'grid';
     data.leagues.forEach((L, i) => { const c = card(L, i); grid.append(typeof c === 'string' ? Object.assign(document.createElement('div'), { innerHTML: c }).firstElementChild : c); });
     app.append(grid);
+    setupAsk(data);
   } catch (e) {
     $('#app').innerHTML = `<div class="err">Couldn't load your leagues: ${esc(e.message)}</div>`;
   } finally {
     $('#loading').style.display = 'none';
   }
 }
+// Calls our server, asking for the site password once if one is set.
+async function api(url, body) {
+  let key = '';
+  try { key = localStorage.getItem('ffkey') || ''; } catch {}
+  const go = () => fetch(url, body
+    ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-dashboard-key': key }, body: JSON.stringify(body) }
+    : { cache: 'no-store', headers: { 'x-dashboard-key': key } });
+  let res = await go();
+  if (res.status === 401) {
+    key = prompt('Password') || '';
+    try { localStorage.setItem('ffkey', key); } catch {}
+    res = await go();
+  }
+  return res.json();
+}
+
+// ---- Ask Claude ----
+let chat = [];
+function md(s) {
+  return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^#+ (.*)$/gm, '<b>$1</b>').replace(/^[-*] /gm, '• ');
+}
+function renderChat() {
+  $('#thread').innerHTML = chat.map((m) => `<div class="msg ${m.role === 'user' ? 'you' : 'claude'}">${m.role === 'user' ? esc(m.content) : md(m.content)}</div>`).join('');
+}
+function setupAsk(data) {
+  const sel = $('#lg');
+  const prev = sel.value;
+  sel.innerHTML = data.leagues.map((L) => `<option value="${esc(L.id)}">${esc(L.name)}</option>`).join('');
+  if (prev) sel.value = prev;
+  $('#ask').hidden = false;
+}
+// Trade cards are drawn when their tab opens, so listen at the document level.
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('.askbtn');
+  if (!b) return;
+  if ($('#lg').value !== b.dataset.league) { chat = []; renderChat(); }
+  $('#lg').value = b.dataset.league;
+  $('#q').value = b.dataset.q;
+  $('#ask').scrollIntoView({ behavior: 'smooth' });
+  $('#q').focus();
+});
+$('#lg').onchange = () => { chat = []; renderChat(); };
+$('#clear').onclick = () => { chat = []; renderChat(); $('#q').value = ''; };
+$('#send').onclick = async () => {
+  const q = $('#q').value.trim();
+  if (!q) return;
+  chat.push({ role: 'user', content: q });
+  $('#q').value = '';
+  renderChat();
+  $('#thread').insertAdjacentHTML('beforeend', '<div class="msg claude muted" id="thinking">Thinking it over…</div>');
+  $('#send').disabled = true;
+  try {
+    const r = await api('/api/ask', { leagueId: $('#lg').value, messages: chat });
+    if (r.error) throw new Error(r.error);
+    chat.push({ role: 'assistant', content: r.answer });
+  } catch (e) {
+    chat.pop();
+    $('#q').value = q;
+    renderChat();
+    $('#thread').insertAdjacentHTML('beforeend', `<div class="msg err">${esc(e.message)}</div>`);
+    return;
+  } finally {
+    $('#send').disabled = false;
+  }
+  renderChat();
+};
+
 $('#refresh').onclick = load;
 load();
 </script>

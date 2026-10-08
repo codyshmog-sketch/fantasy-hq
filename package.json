@@ -2,6 +2,13 @@
   "name": "ff-dashboard",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=18" },
-  "scripts": { "dev": "node dev-server.js" }
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "node dev-server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.132.1"
+  }
 }

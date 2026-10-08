@@ -6,6 +6,7 @@ One page that pulls all six of your leagues (3 ESPN, 3 Sleeper) every time you o
 - **Lineup**: the best lineup for this week from projections, with the swaps to make
 - **Waiver wire**: free agents who beat your weakest starter
 - **Trades**: 1-for-1 and 2-for-1 ideas that improve your lineup and plausibly help the other team too
+- **Ask Claude**: paste a trade offer (or any question) for one league and get a letter grade, verdict and counter, with every roster in that league as context
 - **Keeper** (Maye We Pipe Heather): what each player would cost to keep next year vs. where he'd go in a draft; keeper value also counts in that league's trade ideas
 
 Leagues live in `leagues.config.js`. All leagues are scored as full PPR.
@@ -20,6 +21,7 @@ Every player gets a points-per-game value: mostly his Sleeper PPR projections fo
 2. In Project → Settings → Environment Variables add:
    - `ESPN_SWID` = your SWID, including the braces
    - `ESPN_S2` = your espn_s2 cookie, exactly as copied
+   - `ANTHROPIC_API_KEY` (for Ask Claude) = an API key from console.anthropic.com
    - `DASHBOARD_PASSWORD` (optional) = anything; the page asks for it once per browser
 3. Deploy. The ESPN cookies never reach the browser; only the server function uses them.
 
