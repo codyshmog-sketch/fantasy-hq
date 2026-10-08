@@ -115,6 +115,10 @@ function overview(L) {
     h += L.lineup.moves.map((m) => `<div class="move"><span class="in">▲ Start ${esc(m.in.name)}</span> <span class="muted">(${num(m.in.proj)})</span>${m.out ? ` <span class="out">${esc(m.out.name)}</span> <span class="muted">(${num(m.out.proj)})</span>` : ''}</div>`).join('');
     h += `<div class="muted" style="margin-top:6px">About +${num(L.lineup.gain)} projected points.</div>`;
   } else h += '<div class="ok">✓ Your lineup is already optimal</div>';
+  if (L.news?.length) {
+    h += '<h4>Player news</h4>';
+    h += L.news.map((n) => `<div class="move"><b>${esc(n.player)}</b> <span>${n.url ? `<a href="${esc(n.url)}" target="_blank" rel="noopener" style="color:inherit">${esc(n.headline)}</a>` : esc(n.headline)}</span> <span class="muted">${ago(n.when)}</span></div>`).join('');
+  }
   h += '<h4>Waiver wire</h4>';
   h += L.waivers.length
     ? L.waivers.map((w) => `<div class="move"><span class="in">+ ${esc(w.name)}</span> <span class="muted">${esc(w.pos)} · ${num(w.value)} pts/wk${w.upgradeOver > 0 ? ` · +${num(w.upgradeOver)} over your starter` : ''}${w.drop ? ` · drop ${esc(w.drop.name)}?` : ''}</span></div>`).join('')

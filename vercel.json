@@ -5,6 +5,9 @@
     },
     "api/context.js": {
       "maxDuration": 30
+    },
+    "api/dashboard.js": {
+      "maxDuration": 60
     }
   }
 }

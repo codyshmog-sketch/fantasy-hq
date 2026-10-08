@@ -21,7 +21,7 @@ for (const pos of POS) {
     const id = pos === 'DEF' ? team : String(n++);
     const name = pos === 'DEF' ? null : `${FIRST[(i * 7 + n) % 20]} ${LAST[(i * 3 + n) % 20]}${i > 30 ? ' Jr.' : ''} ${pos}${String.fromCharCode(65 + (i % 26))}${String.fromCharCode(65 + Math.floor(i / 26))}`;
     const inj = rnd() < 0.08 ? ['Questionable', 'Out', 'IR', 'Doubtful'][Math.floor(rnd() * 4)] : null;
-    players[id] = { player_id: id, full_name: name, first_name: name?.split(' ')[0], last_name: name?.split(' ').slice(1).join(' '), position: pos, fantasy_positions: [pos], team, injury_status: inj, active: true };
+    players[id] = { espn_id: pos === 'DEF' ? null : 50000 + n, player_id: id, full_name: name, first_name: name?.split(' ')[0], last_name: name?.split(' ').slice(1).join(' '), position: pos, fantasy_positions: [pos], team, injury_status: inj, active: true };
     const ppg = Math.max(0.5, BASE[pos] * (1.15 - i / COUNT[pos]) + (rnd() - 0.5) * 4);
     players[id]._ppg = ppg;
     players[id]._bye = 5 + (i % 9);
@@ -108,6 +108,7 @@ globalThis.fetch = async (url, opts = {}) => {
   const u = new URL(url);
   const p = u.pathname;
   let m;
+  if (u.host === 'site.api.espn.com') return json({ feed: [{ headline: `Mock news for player ${u.searchParams.get('playerId')}`, description: 'Limited in practice Wednesday.', published: new Date(Date.now() - 36e5).toISOString(), links: { web: { href: 'https://espn.com' } } }] });
   if (p === '/v1/state/nfl') return json({ season: '2026', week, display_week: week, season_type: 'regular' });
   if (p === '/v1/players/nfl') return json(players);
   if (p.startsWith('/v1/user/')) return json({ user_id: 'u_me', username: p.split('/').pop() });
