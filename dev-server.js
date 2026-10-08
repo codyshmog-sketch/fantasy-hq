@@ -11,7 +11,7 @@ if (fs.existsSync('.env')) {
 }
 if (process.env.MOCK) await import('./test/mock-fetch.js');
 const { buildDashboard } = await import('./lib/dashboard.js');
-const { ask } = await import('./lib/ask.js');
+const { ask, buildBrief } = await import('./lib/ask.js');
 
 const port = process.env.PORT || 3000;
 http
@@ -26,6 +26,11 @@ http
         console.error(e);
         res.writeHead(500, { 'content-type': 'application/json' }).end(JSON.stringify({ error: e.message }));
       }
+      return;
+    }
+    if (req.url.startsWith('/api/context')) {
+      const league = new URL(req.url, 'http://x').searchParams.get('league') || 'all';
+      res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' }).end(await buildBrief(league));
       return;
     }
     if (req.url.startsWith('/api/ask')) {

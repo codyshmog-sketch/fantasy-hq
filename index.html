@@ -87,10 +87,11 @@
   <div id="loading">Pulling your 6 leagues…</div>
   <section class="ask" id="ask" hidden>
     <h2>💬 Ask Claude</h2>
-    <div class="muted">Paste a trade offer you got, or ask anything about one of your leagues. Claude sees every roster in that league.</div>
+    <div class="muted" id="askhelp">Paste a trade offer you got, or ask anything about one of your leagues. Claude sees every roster in that league.</div>
     <div id="thread"></div>
     <textarea id="q" placeholder="e.g. I was offered Kenneth Walker for Tet McMillan and James Cook. Should I take it?"></textarea>
     <div class="row"><select id="lg"></select><button class="go" id="send">Ask</button><button id="clear">New chat</button></div>
+    <div class="muted" id="copied" style="margin-top:8px"></div>
   </section>
   <div id="app"></div>
 </main>
@@ -239,8 +240,43 @@ function setupAsk(data) {
   const sel = $('#lg');
   const prev = sel.value;
   sel.innerHTML = data.leagues.map((L) => `<option value="${esc(L.id)}">${esc(L.name)}</option>`).join('');
+  copyMode = !data.askEnabled;
+  if (copyMode) {
+    sel.insertAdjacentHTML('afterbegin', '<option value="all">All 6 leagues</option>');
+    $('#send').textContent = 'Copy for Claude';
+    $('#clear').hidden = true;
+    $('#askhelp').textContent = 'Type a question or paste a trade offer, then tap Copy. It copies your question plus every roster in that league, so you can paste it into a Claude chat.';
+  }
   if (prev) sel.value = prev;
   $('#ask').hidden = false;
+  if (copyMode) prefetchBrief();
+}
+
+// Copy mode (no API key): fetch the league brief ahead of time so the copy
+// happens right on the tap, which phones require for clipboard access.
+let copyMode = false;
+const briefs = {};
+async function prefetchBrief() {
+  const id = $('#lg').value;
+  if (briefs[id]) return;
+  let key = '';
+  try { key = localStorage.getItem('ffkey') || ''; } catch {}
+  briefs[id] = fetch(`/api/context?league=${encodeURIComponent(id)}`, { headers: { 'x-dashboard-key': key } }).then((r) => r.text());
+  briefs[id] = await briefs[id];
+}
+async function copyBrief() {
+  const id = $('#lg').value;
+  const q = $('#q').value.trim();
+  if (typeof briefs[id] !== 'string') { $('#copied').textContent = 'Still loading that league, tap again in a second.'; prefetchBrief(); return; }
+  const text = `${briefs[id]}\n\n# My question\n${q || '(I will ask my question in my next message.)'}`;
+  try {
+    await navigator.clipboard.writeText(text);
+    $('#copied').innerHTML = '✓ Copied. Paste it into a <a href="https://claude.ai/new" target="_blank" rel="noopener">new Claude chat</a> (or this project) and send.';
+  } catch {
+    $('#q').value = text;
+    $('#q').select();
+    $('#copied').textContent = "Couldn't copy automatically. Everything is selected in the box above; copy it manually.";
+  }
 }
 // Trade cards are drawn when their tab opens, so listen at the document level.
 document.addEventListener('click', (e) => {
@@ -249,12 +285,15 @@ document.addEventListener('click', (e) => {
   if ($('#lg').value !== b.dataset.league) { chat = []; renderChat(); }
   $('#lg').value = b.dataset.league;
   $('#q').value = b.dataset.q;
+  $('#copied').textContent = '';
+  if (copyMode) prefetchBrief();
   $('#ask').scrollIntoView({ behavior: 'smooth' });
   $('#q').focus();
 });
-$('#lg').onchange = () => { chat = []; renderChat(); };
+$('#lg').onchange = () => { chat = []; renderChat(); $('#copied').textContent = ''; if (copyMode) prefetchBrief(); };
 $('#clear').onclick = () => { chat = []; renderChat(); $('#q').value = ''; };
 $('#send').onclick = async () => {
+  if (copyMode) return copyBrief();
   const q = $('#q').value.trim();
   if (!q) return;
   chat.push({ role: 'user', content: q });
