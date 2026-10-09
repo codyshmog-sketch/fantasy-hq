@@ -75,6 +75,41 @@
   .msg { padding: 8px 10px; border-radius: 8px; margin: 8px 0; font-size: 14px; white-space: pre-wrap; }
   .msg.you { background: var(--bg); }
   .msg.claude { background: var(--accent-soft); }
+  nav.views { display: flex; gap: 4px; max-width: 1100px; margin: 0 auto; padding: 0 16px 8px; }
+  nav.views button { border-radius: 99px; padding: 5px 14px; }
+  nav.views button.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .win { display: flex; height: 6px; border-radius: 99px; overflow: hidden; margin-top: 6px; background: var(--bad-soft); }
+  .win > div { background: var(--accent); }
+  .pct { font-weight: 700; }
+  .pct.up { color: var(--accent); } .pct.down { color: var(--bad); }
+  a.team, button.team { color: inherit; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+  .switch { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .switch select { font: inherit; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); flex: 1; min-width: 0; }
+  .mu-head { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; text-align: center; }
+  .mu-head .big { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  table.mu td { vertical-align: top; }
+  table.mu td.slot { text-align: center; color: var(--muted); font-size: 12px; width: 52px; }
+  table.mu .g { display: block; font-size: 11px; color: var(--muted); }
+  table.mu .p { font-weight: 700; font-variant-numeric: tabular-nums; }
+  table.mu td.r { text-align: right; }
+  .live { color: var(--warn); }
+  .tgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 12px; }
+  .tcard { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--card); }
+  .tcard.mine { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .tcard h3 { margin: 0; font-size: 15px; }
+  .chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px; margin: 4px 4px 0 0; }
+  .chip.need { background: var(--bad-soft); color: var(--bad); } .chip.deep { background: var(--accent-soft); color: var(--accent); } .chip.partner { background: var(--warn-soft); color: var(--warn); }
+  .posrow { display: grid; grid-template-columns: 34px 1fr; gap: 6px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .posrow.weak { background: var(--bad-soft); margin: 0 -12px; padding: 5px 12px; }
+  .posrow .lbl2 { font-weight: 700; color: var(--muted); }
+  .posrow .rk { font-size: 11px; color: var(--muted); display: block; font-weight: 400; }
+  .posrow span.pl { white-space: nowrap; margin-right: 8px; }
+  .posrow span.pl.st { font-weight: 600; }
+  dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); width: min(560px, calc(100vw - 32px)); max-height: 85vh; padding: 0; }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  dialog .dh { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--card); }
+  dialog .db { padding: 8px 16px 16px; }
   .trade .askbtn { margin-top: 8px; font-size: 13px; padding: 3px 10px; }
 </style>
 </head>
@@ -84,6 +119,8 @@
   <span class="sub" id="meta"></span>
   <button id="refresh" style="margin-left:auto">Refresh</button>
 </header>
+<nav class="views"><button data-v="home" class="on">Dashboard</button><button data-v="matchups">Matchups</button><button data-v="trades">Trade view</button></nav>
+<dialog id="roster"><div class="dh"><b id="rtitle"></b><button id="rclose">Close</button></div><div class="db" id="rbody"></div></dialog>
 <main>
   <div id="loading">Pulling your 6 leagues…</div>
   <section class="ask" id="ask" hidden>
@@ -95,6 +132,8 @@
     <div class="muted" id="copied" style="margin-top:8px"></div>
   </section>
   <div id="app"></div>
+  <div id="mview" hidden></div>
+  <div id="tview" hidden></div>
 </main>
 <script>
 const $ = (s, el = document) => el.querySelector(s);
@@ -163,7 +202,7 @@ function keeperTab(L) {
 
 function leagueTab(L) {
   let h = `<table><tr><th>#</th><th>Team</th><th class="n">Record</th><th class="n">PF</th></tr>${L.standings
-    .map((s) => `<tr class="${s.name === L.myTeam.name ? 'me' : ''}"><td>${s.rank}</td><td>${esc(s.name)}</td><td class="n">${rec(s)}</td><td class="n">${num(s.pf)}</td></tr>`).join('')}</table>`;
+    .map((s) => `<tr class="${s.name === L.myTeam.name ? 'me' : ''}"><td>${s.rank}</td><td>${teamLink(L, s.id, s.name)}</td><td class="n">${rec(s)}</td><td class="n">${num(s.pf)}</td></tr>`).join('')}</table>`;
   h += '<h4>Recent moves</h4>';
   h += L.transactions.length
     ? L.transactions.map((t) => `<div class="move"><b>${esc(t.type)}</b> ${esc(t.text)} <span class="muted">${ago(t.when)}</span></div>`).join('')
@@ -181,8 +220,9 @@ function card(L, i) {
       <div class="top"><h3><a href="${esc(L.url)}" target="_blank" rel="noopener">${esc(L.name)}</a></h3>
         <span>${L.keeper ? '<span class="tag keeper">keeper</span> ' : ''}<span class="tag ${L.platform}">${L.platform}</span></span></div>
       <div class="sub">${esc(L.myTeam.name)} · ${rec(L.myTeam)} · ${ordinal(L.myTeam.rank)} of ${L.myTeam.size}${L.ppr != null && L.ppr !== 1 ? ` · <b>${L.ppr} PPR</b>` : ''}</div>
-      ${m ? `<div class="score"><span>You <b>${num(m.myPts)}</b></span><span class="muted">vs</span><span>${esc(m.oppName)} <b>${num(m.oppPts)}</b></span></div>
-      <div class="sub">Projected: you ${num(L.lineup.projected)} · them ${num(m.oppProj)}</div>` : ''}
+      ${m ? `<div class="score"><span>You <b>${num(m.myPts)}</b></span><span class="muted">vs</span><span>${teamLink(L, m.oppId, m.oppName)} <b>${num(m.oppPts)}</b></span></div>
+      <div class="sub">Projected: you ${num(m.myProj)} · them ${num(m.oppProj)} · ${winText(m)}</div>
+      <div class="win"><div style="width:${m.winPct}%"></div></div>` : ''}
     </div>
     <div class="tabs">${tabs.map(([n], j) => `<button data-t="${j}" class="${j ? '' : 'on'}">${n}${n === 'Trades' && L.trades.length ? ` (${L.trades.length})` : ''}${n === 'News' && L.news?.length ? ` (${L.news.length})` : ''}</button>`).join('')}</div>
     <div class="pane"></div>`;
@@ -221,12 +261,142 @@ async function load() {
     data.leagues.forEach((L, i) => { const c = card(L, i); grid.append(typeof c === 'string' ? Object.assign(document.createElement('div'), { innerHTML: c }).firstElementChild : c); });
     app.append(grid);
     setupAsk(data);
+    DATA = data;
+    renderView();
   } catch (e) {
     $('#app').innerHTML = `<div class="err">Couldn't load your leagues: ${esc(e.message)}</div>`;
   } finally {
     $('#loading').style.display = 'none';
   }
 }
+// ---- Shared bits for the new views ----
+let DATA = null;
+let VIEW = 'home';
+let MU = 0;
+let TV = 0;
+const okLeagues = () => (DATA ? DATA.leagues.filter((L) => !L.error) : []);
+
+function winText(m) {
+  const cls = m.winPct >= 55 ? 'up' : m.winPct <= 45 ? 'down' : '';
+  return `<span class="pct ${cls}">You ${m.winPct}%</span> <span class="muted">· them ${100 - m.winPct}% to win</span>${m.bestWinPct ? ` <span class="muted">(${m.bestWinPct}% with best lineup)</span>` : ''}`;
+}
+
+function teamLink(L, id, name) {
+  return `<button class="team" data-league="${esc(L.id)}" data-team="${esc(id)}">${esc(name)}</button>`;
+}
+
+// Roster pop-up for any team.
+function openRoster(leagueId, teamId) {
+  const L = okLeagues().find((x) => x.id === leagueId);
+  const t = L?.teams?.find((x) => String(x.id) === String(teamId));
+  if (!t) return;
+  $('#rtitle').textContent = `${t.name} · ${rec(t)}`;
+  const rows = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].filter((pos) => t.byPos[pos]?.length).map((pos) =>
+    `<tr><th colspan="3" style="padding-top:10px">${pos}${t.ranks?.[pos] ? ` <span class="muted">· ${ordinal(t.ranks[pos])} of ${L.teams.length} in league</span>` : ''}</th></tr>` +
+    t.byPos[pos].map((p) => `<tr><td>${p.starter ? '<b>' : ''}${esc(p.name)}${p.starter ? '</b>' : ''} <span class="muted">${esc(p.nfl)}</span>${p.injury ? `<span class="inj">${esc(p.injury)}</span>` : ''}</td><td class="n">${num(p.value)}<span class="muted"> /wk</span></td><td class="n">${p.pts != null ? num(p.pts) + '<span class="muted"> now</span>' : ''}</td></tr>`).join('')).join('');
+  $('#rbody').innerHTML = `${t.needs.length ? t.needs.map((n) => `<span class="chip need">Weak at ${n}</span>`).join('') : ''}${t.surplus.map((n) => `<span class="chip deep">Deep at ${n}</span>`).join('')}
+    <table style="margin-top:6px">${rows}</table><div class="muted" style="margin-top:8px">Bold = in their starting lineup. /wk = projected points per game going forward.</div>`;
+  $('#roster').showModal();
+}
+$('#rclose').onclick = () => $('#roster').close();
+$('#roster').addEventListener('click', (e) => { if (e.target === $('#roster')) $('#roster').close(); });
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button.team');
+  if (b) openRoster(b.dataset.league, b.dataset.team);
+});
+
+// View switching (Dashboard / Matchups / Trade view), remembered in the URL.
+function setView(v) {
+  VIEW = v;
+  try { history.replaceState(null, '', v === 'home' ? location.pathname : `#${v}`); } catch {}
+  document.querySelectorAll('nav.views button').forEach((b) => b.classList.toggle('on', b.dataset.v === v));
+  renderView();
+}
+document.querySelectorAll('nav.views button').forEach((b) => (b.onclick = () => setView(b.dataset.v)));
+VIEW = ['matchups', 'trades'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home';
+document.querySelectorAll('nav.views button').forEach((b) => b.classList.toggle('on', b.dataset.v === VIEW));
+window.addEventListener('hashchange', () => {
+  const v = location.hash.slice(1);
+  setView(['matchups', 'trades'].includes(v) ? v : 'home');
+});
+
+function renderView() {
+  $('#app').hidden = VIEW !== 'home';
+  $('#ask').hidden = VIEW !== 'home' || !DATA;
+  $('#mview').hidden = VIEW !== 'matchups';
+  $('#tview').hidden = VIEW !== 'trades';
+  if (!DATA) return;
+  if (VIEW === 'matchups') renderMatchups();
+  if (VIEW === 'trades') renderTrades();
+}
+
+function switcher(list, idx, id) {
+  return `<div class="switch"><button data-step="-1" data-sw="${id}">◀</button><select data-sw="${id}">${list.map((L, i) => `<option value="${i}" ${i === idx ? 'selected' : ''}>${esc(L.name)}</option>`).join('')}</select><button data-step="1" data-sw="${id}">▶</button></div>`;
+}
+function wireSwitcher(root, list, get, set, render) {
+  root.querySelectorAll('[data-step]').forEach((b) => (b.onclick = () => { set((get() + Number(b.dataset.step) + list.length) % list.length); render(); }));
+  root.querySelector('select').onchange = (e) => { set(Number(e.target.value)); render(); };
+}
+
+// ---- Matchups view ----
+function renderMatchups() {
+  const list = okLeagues().filter((L) => L.matchup);
+  const root = $('#mview');
+  if (!list.length) { root.innerHTML = '<div class="panel muted">No matchups this week.</div>'; return; }
+  MU = Math.min(MU, list.length - 1);
+  const L = list[MU];
+  const m = L.matchup;
+  const me = L.teams.find((t) => t.mine);
+  const cell = (r, side) => {
+    if (!r || !r.player) return side === 'l' ? '<td><span class="muted">empty</span></td><td></td>' : '<td></td><td class="r"><span class="muted">empty</span></td>';
+    const live = r.state === 'in';
+    const inner = `${esc(r.player.name)}${r.player.injury ? `<span class="inj">${esc(r.player.injury)}</span>` : ''}<span class="g ${live ? 'live' : ''}">${esc(r.player.pos)} · ${esc(r.game)}${r.proj != null ? ` · proj ${num(r.proj)}` : ''}</span>`;
+    const pts = `<span class="p">${num(r.pts)}</span>`;
+    return side === 'l' ? `<td>${inner}</td><td class="r">${pts}</td>` : `<td>${pts}</td><td class="r">${inner}</td>`;
+  };
+  const n = Math.max(m.myRows.length, m.oppRows.length);
+  let rows = '';
+  for (let i = 0; i < n; i++) rows += `<tr>${cell(m.myRows[i], 'l')}<td class="slot">${esc((m.myRows[i] || m.oppRows[i]).slot)}</td>${cell(m.oppRows[i], 'r')}</tr>`;
+  root.innerHTML = `${switcher(list, MU, 'mu')}
+    <div class="panel">
+      <div class="mu-head">
+        <div><div class="muted">${esc(me.name)}</div><div class="big">${num(m.myPts)}</div><div class="muted">proj ${num(m.myProj)}</div></div>
+        <div class="muted">vs</div>
+        <div><div class="muted">${teamLink(L, m.oppId, m.oppName)}</div><div class="big">${num(m.oppPts)}</div><div class="muted">proj ${num(m.oppProj)}</div></div>
+      </div>
+      <div style="text-align:center;margin-top:8px">${winText(m)}</div>
+      <div class="win"><div style="width:${m.winPct}%"></div></div>
+      <table class="mu" style="margin-top:12px">${rows}</table>
+      <div class="muted" style="margin-top:8px">Points update every time you refresh. Win % blends points scored so far with projections for games still to play.</div>
+    </div>`;
+  wireSwitcher(root, list, () => MU, (v) => (MU = v), renderMatchups);
+}
+
+// ---- Trade view ----
+function renderTrades() {
+  const list = okLeagues().filter((L) => L.teams);
+  const root = $('#tview');
+  if (!list.length) return;
+  TV = Math.min(TV, list.length - 1);
+  const L = list[TV];
+  const teams = [...L.teams].sort((a, b) => (b.mine - a.mine) || (b.partner ? 1 : 0) - (a.partner ? 1 : 0));
+  const size = L.teams.length;
+  const card = (t) => {
+    const pos = ['QB', 'RB', 'WR', 'TE'].map((p) => {
+      const weak = t.needs.includes(p);
+      const players = (t.byPos[p] || []).slice(0, 6).map((x) => `<span class="pl ${x.starter ? 'st' : ''}">${esc(x.name)} <span class="muted">${num(x.value)}</span>${x.injury ? `<span class="inj">${esc(x.injury.slice(0, 1))}</span>` : ''}</span>`).join(' ');
+      return `<div class="posrow ${weak ? 'weak' : ''}"><div class="lbl2">${p}<span class="rk">${t.ranks?.[p] ? `${t.ranks[p]}/${size}` : ''}</span></div><div>${players || '<span class="muted">none</span>'}</div></div>`;
+    }).join('');
+    const chips = t.needs.map((n) => `<span class="chip need">Weak at ${n}</span>`).join('') + t.surplus.map((n) => `<span class="chip deep">Deep at ${n}</span>`).join('') +
+      (t.partner ? `<span class="chip partner">Trade fit: your ${t.partner.give.join('/')} for their ${t.partner.get.join('/')}</span>` : '');
+    return `<div class="tcard ${t.mine ? 'mine' : ''}"><h3>${teamLink(L, t.id, t.name)}${t.mine ? ' <span class="muted">(you)</span>' : ''}</h3><div class="muted">${rec(t)} · ${num(t.pf)} PF</div><div>${chips}</div><div style="margin-top:6px">${pos}</div></div>`;
+  };
+  root.innerHTML = `${switcher(list, TV, 'tv')}
+    <div class="muted" style="margin-bottom:10px">Each position lists players best to worst with their projected points per game. Bold = starting. The number under each position is that team's league rank there. Red rows are weak spots (bottom 30% of the league); "Deep at" means their first bench player would start for most teams. Teams that fit a trade with you are listed first.</div>
+    <div class="tgrid">${teams.map(card).join('')}</div>`;
+  wireSwitcher(root, list, () => TV, (v) => (TV = v), renderTrades);
+}
+
 // Calls our server, asking for the site password once if one is set.
 async function api(url, body) {
   let key = '';

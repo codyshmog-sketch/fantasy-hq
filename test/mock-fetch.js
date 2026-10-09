@@ -75,7 +75,7 @@ LEAGUE_IDS.sleeper.forEach((id, li) => {
     users: rosters.map((_, i) => ({ user_id: `u${i}`, display_name: i === 2 ? (li === 2 ? 'btroke' : 'emartinator') : `user${i}`, metadata: { team_name: li === 2 && i === 2 ? 'Maye We Pipe Heather' : `Team ${LAST[i]}` } })),
     rosters: rosters.map((r, i) => ({ roster_id: i + 1, owner_id: `u${i}`, co_owners: li === 2 && i === 2 ? ['u_me'] : null, players: r, starters: startersFor(r), settings: { wins: Math.floor(rnd() * 5), losses: 2, fpts: 400 + Math.floor(rnd() * 200) } })),
     picks, draft: { settings: { rounds: 15 } },
-    matchups: rosters.map((_, i) => ({ roster_id: i + 1, matchup_id: Math.floor(i / 2) + 1, points: +(rnd() * 30).toFixed(2) })),
+    matchups: rosters.map((r, i) => ({ roster_id: i + 1, matchup_id: Math.floor(i / 2) + 1, points: +(rnd() * 30).toFixed(2), players_points: Object.fromEntries(r.map((pid) => [pid, TEAMS.indexOf(players[pid].team) % 8 < 2 ? +(players[pid]._ppg * rnd() * 1.4).toFixed(1) : TEAMS.indexOf(players[pid].team) % 8 < 4 ? +(players[pid]._ppg * 0.5).toFixed(1) : 0])) })),
     tx: [{ type: 'trade', status: 'complete', created: Date.now() - 864e5, status_updated: Date.now() - 864e5, roster_ids: [1, 4], adds: { [rosters[0][3]]: 4, [rosters[3][4]]: 1 } }, { type: 'free_agent', status: 'complete', created: Date.now() - 3e6, status_updated: Date.now() - 3e6, roster_ids: [3], adds: { [ids[200]]: 3 }, drops: { [rosters[2][15]]: 3 } }],
   };
   // Make "me" own roster 3 (index 2) in leagues 0/1.
@@ -93,7 +93,7 @@ LEAGUE_IDS.espn.forEach((id, li) => {
       roster: { entries: r.map((pid) => ({ playerId: Number(pid) || 90000 + TEAMS.indexOf(pid), lineupSlotId: slotFor(pid), playerPoolEntry: { player: {
         id: Number(pid), fullName: players[pid].position === 'DEF' ? `${pid} D/ST` : players[pid].full_name, defaultPositionId: ESPN_POS[players[pid].position], proTeamId: ESPN_TEAM_ID[players[pid].team],
         injuryStatus: { Questionable: 'QUESTIONABLE', Out: 'OUT', IR: 'INJURY_RESERVE', Doubtful: 'DOUBTFUL' }[players[pid].injury_status] || 'ACTIVE',
-        stats: [{ scoringPeriodId: week, statSourceId: 1, appliedTotal: players[pid]._bye === week ? 0 : players[pid]._ppg * (0.9 + rnd() * 0.2) }] } } })) },
+        stats: [{ scoringPeriodId: week, statSourceId: 0, appliedTotal: TEAMS.indexOf(players[pid].team) % 8 < 2 ? players[pid]._ppg : 0 }, { scoringPeriodId: week, statSourceId: 1, appliedTotal: players[pid]._bye === week ? 0 : players[pid]._ppg * (0.9 + rnd() * 0.2) }] } } })) },
     };
   });
   espnLeagues[id] = {
@@ -108,6 +108,15 @@ globalThis.fetch = async (url, opts = {}) => {
   const u = new URL(url);
   const p = u.pathname;
   let m;
+  if (p.endsWith('/scoreboard')) {
+    const states = ['post', 'in', 'pre', 'pre'];
+    const events = [];
+    for (let i = 0; i < 28; i += 2) {
+      const state = states[(i / 2) % 4];
+      events.push({ date: new Date(Date.now() + 864e5).toISOString(), competitions: [{ status: { period: 3, clock: 420, type: { state, shortDetail: state === 'post' ? 'Final' : state === 'in' ? '3rd 7:00' : '' } }, competitors: [{ team: { abbreviation: TEAMS[i] === 'WAS' ? 'WSH' : TEAMS[i] } }, { team: { abbreviation: TEAMS[i + 1] } }] }] });
+    }
+    return json({ events });
+  }
   if (u.host === 'site.api.espn.com') return json({ feed: [{ headline: `Mock news for player ${u.searchParams.get('playerId')}`, description: 'Limited in practice Wednesday.', published: new Date(Date.now() - 36e5).toISOString(), links: { web: { href: 'https://espn.com' } } }] });
   if (p === '/v1/state/nfl') return json({ season: '2026', week, display_week: week, season_type: 'regular' });
   if (p === '/v1/players/nfl') return json(players);
