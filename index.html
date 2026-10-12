@@ -90,6 +90,7 @@
   .mu-head .big { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
   table.mu td { vertical-align: top; }
   table.mu td.slot { text-align: center; color: var(--muted); font-size: 12px; width: 52px; }
+  #roster td.slot { color: var(--muted); font-size: 12px; width: 52px; }
   table.mu .g { display: block; font-size: 11px; color: var(--muted); }
   table.mu .p { font-weight: 700; font-variant-numeric: tabular-nums; }
   table.mu td.r { text-align: right; }
@@ -291,11 +292,29 @@ function openRoster(leagueId, teamId) {
   const t = L?.teams?.find((x) => String(x.id) === String(teamId));
   if (!t) return;
   $('#rtitle').textContent = `${t.name} · ${rec(t)}`;
-  const rows = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].filter((pos) => t.byPos[pos]?.length).map((pos) =>
-    `<tr><th colspan="3" style="padding-top:10px">${pos}${t.ranks?.[pos] ? ` <span class="muted">· ${ordinal(t.ranks[pos])} of ${L.teams.length} in league</span>` : ''}</th></tr>` +
-    t.byPos[pos].map((p) => `<tr><td>${p.starter ? '<b>' : ''}${esc(p.name)}${p.starter ? '</b>' : ''} <span class="muted">${esc(p.nfl)}</span>${p.injury ? `<span class="inj">${esc(p.injury)}</span>` : ''}</td><td class="n">${num(p.value)}<span class="muted"> /wk</span></td><td class="n">${p.pts != null ? num(p.pts) + '<span class="muted"> now</span>' : ''}</td></tr>`).join('')).join('');
-  $('#rbody').innerHTML = `${t.needs.length ? t.needs.map((n) => `<span class="chip need">Weak at ${n}</span>`).join('') : ''}${t.surplus.map((n) => `<span class="chip deep">Deep at ${n}</span>`).join('')}
-    <table style="margin-top:6px">${rows}</table><div class="muted" style="margin-top:8px">Bold = in their starting lineup. /wk = projected points per game going forward.</div>`;
+  // Starting lineup in slot order (QB, RB, RB, WR, ...), then bench, then IR.
+  const POS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+  const all = POS.flatMap((pos) => t.byPos[pos] || []);
+  const byId = new Map(all.map((p) => [String(p.id), p]));
+  const used = new Set();
+  const row = (label, p) => {
+    if (p) used.add(String(p.id));
+    if (!p) return `<tr><td class="slot">${esc(label)}</td><td colspan="3" class="muted">empty</td></tr>`;
+    return `<tr><td class="slot">${esc(label)}</td><td>${esc(p.name)} <span class="muted">${esc(p.pos)} · ${esc(p.nfl)}</span>${p.injury ? `<span class="inj">${esc(p.injury)}</span>` : ''}</td><td class="n">${num(p.value)}<span class="muted"> /wk</span></td><td class="n">${p.pts != null ? num(p.pts) + '<span class="muted"> now</span>' : ''}</td></tr>`;
+  };
+  const head = (txt) => `<tr><th colspan="4" style="padding-top:10px">${txt}</th></tr>`;
+  const lineup = (t.lineup || []).map((x) => row(x.slot, x.id != null ? byId.get(String(x.id)) : null)).join('');
+  const reserveIds = new Set((t.reserve || []).map(String));
+  const leftover = all.filter((p) => !used.has(String(p.id)));
+  const bench = leftover.filter((p) => !reserveIds.has(String(p.id)));
+  const ir = leftover.filter((p) => reserveIds.has(String(p.id)));
+  const rows = head('Starters') + lineup +
+    (bench.length ? head('Bench') + bench.map((p) => row('BN', p)).join('') : '') +
+    (ir.length ? head('IR') + ir.map((p) => row('IR', p)).join('') : '');
+  const ranks = ['QB', 'RB', 'WR', 'TE'].filter((pos) => t.ranks?.[pos]).map((pos) => `${pos} ${ordinal(t.ranks[pos])}`).join(' · ');
+  $('#rbody').innerHTML = `${t.needs.map((n) => `<span class="chip need">Weak at ${n}</span>`).join('')}${t.surplus.map((n) => `<span class="chip deep">Deep at ${n}</span>`).join('')}
+    ${ranks ? `<div class="muted" style="margin-top:4px">League rank by position: ${ranks} (of ${L.teams.length})</div>` : ''}
+    <table style="margin-top:6px">${rows}</table><div class="muted" style="margin-top:8px">/wk = projected points per game going forward. Now = points this week.</div>`;
   $('#roster').showModal();
 }
 $('#rclose').onclick = () => $('#roster').close();
