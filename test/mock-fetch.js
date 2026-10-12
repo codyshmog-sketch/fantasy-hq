@@ -71,9 +71,9 @@ LEAGUE_IDS.sleeper.forEach((id, li) => {
   const { rosters, picks } = deal(size, 15, 100 + li);
   if (li === 2) picks.find((p) => p.round === 12 && p.roster_id === 3).is_keeper = true;
   sleeperLeagues[id] = {
-    league: { name: ['Dynasty Degenerates', 'Work League', 'JCC Keeper League'][li], total_rosters: size, roster_positions: [...SLOTS.slice(0, 7), 'FLEX', 'K', 'DEF', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN'], scoring_settings: { rec: 1 }, draft_id: `d${id}` },
+    league: { name: ['Dynasty Degenerates', 'Work League', 'JCC Keeper League'][li], total_rosters: size, roster_positions: [...SLOTS.slice(0, 7), 'FLEX', 'K', 'DEF', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN'], scoring_settings: { rec: 1 }, draft_id: `d${id}`, settings: { playoff_week_start: 15, playoff_teams: 4 + (li % 2) * 2, waiver_type: li === 0 ? 0 : 2, waiver_budget: 100 } },
     users: rosters.map((_, i) => ({ user_id: `u${i}`, display_name: i === 2 ? (li === 2 ? 'btroke' : 'emartinator') : `user${i}`, metadata: { team_name: li === 2 && i === 2 ? 'Maye We Pipe Heather' : `Team ${LAST[i]}` } })),
-    rosters: rosters.map((r, i) => ({ roster_id: i + 1, owner_id: `u${i}`, co_owners: li === 2 && i === 2 ? ['u_me'] : null, players: r, starters: startersFor(r), settings: { wins: Math.floor(rnd() * 5), losses: 2, fpts: 400 + Math.floor(rnd() * 200) } })),
+    rosters: rosters.map((r, i) => ({ roster_id: i + 1, owner_id: `u${i}`, co_owners: li === 2 && i === 2 ? ['u_me'] : null, players: r, starters: startersFor(r), settings: { wins: Math.floor(rnd() * 5), losses: 2, fpts: 400 + Math.floor(rnd() * 200), waiver_budget_used: 17, waiver_position: i + 1 } })),
     picks, draft: { settings: { rounds: 15 } },
     matchups: rosters.map((r, i) => ({ roster_id: i + 1, matchup_id: Math.floor(i / 2) + 1, points: +(rnd() * 30).toFixed(2), players_points: Object.fromEntries(r.map((pid) => [pid, TEAMS.indexOf(players[pid].team) % 8 < 2 ? +(players[pid]._ppg * rnd() * 1.4).toFixed(1) : TEAMS.indexOf(players[pid].team) % 8 < 4 ? +(players[pid]._ppg * 0.5).toFixed(1) : 0])) })),
     tx: [{ type: 'trade', status: 'complete', created: Date.now() - 864e5, status_updated: Date.now() - 864e5, roster_ids: [1, 4], adds: { [rosters[0][3]]: 4, [rosters[3][4]]: 1 } }, { type: 'free_agent', status: 'complete', created: Date.now() - 3e6, status_updated: Date.now() - 3e6, roster_ids: [3], adds: { [ids[200]]: 3 }, drops: { [rosters[2][15]]: 3 } }],
@@ -89,7 +89,7 @@ LEAGUE_IDS.espn.forEach((id, li) => {
     const slotFor = (pid) => { const pos = players[pid].position; return starters.has(pid) ? { QB: 0, RB: 2, WR: 4, TE: 6, K: 17, DEF: 16 }[pos] : 20; };
     return {
       id: i + 1, name: i === 1 ? MY_ESPN[id] : `${LAST[i]} Squad`, owners: [i === 1 ? '{MOCK-SWID}' : `{OWNER-${i}}`],
-      record: { overall: { wins: Math.floor(rnd() * 5), losses: 2, ties: 0, pointsFor: 450 + rnd() * 150 } },
+      waiverRank: i + 1, transactionCounter: { acquisitionBudgetSpent: 23 }, record: { overall: { wins: Math.floor(rnd() * 5), losses: 2, ties: 0, pointsFor: 450 + rnd() * 150 } },
       roster: { entries: r.map((pid) => ({ playerId: Number(pid) || 90000 + TEAMS.indexOf(pid), lineupSlotId: slotFor(pid), playerPoolEntry: { player: {
         id: Number(pid), fullName: players[pid].position === 'DEF' ? `${pid} D/ST` : players[pid].full_name, defaultPositionId: ESPN_POS[players[pid].position], proTeamId: ESPN_TEAM_ID[players[pid].team],
         injuryStatus: { Questionable: 'QUESTIONABLE', Out: 'OUT', IR: 'INJURY_RESERVE', Doubtful: 'DOUBTFUL' }[players[pid].injury_status] || 'ACTIVE',
@@ -98,8 +98,9 @@ LEAGUE_IDS.espn.forEach((id, li) => {
   });
   espnLeagues[id] = {
     scoringPeriodId: week, status: { currentMatchupPeriod: week }, members: [],
-    settings: { name: ["Hightstown's Finest", 'Zeeb League', 'Real Deal'][li], rosterSettings: { lineupSlotCounts: { 0: 1, 2: 2, 4: 2, 6: 1, 23: 1, 16: 1, 17: 1, 20: 7, 21: 1 } }, scoringSettings: { scoringItems: [{ statId: 53, points: 1 }] } },
-    teams, schedule: [{ matchupPeriodId: week, home: { teamId: 2, totalPoints: 12.4 }, away: { teamId: 5, totalPoints: 30.1 } }],
+    settings: { name: ["Hightstown's Finest", 'Zeeb League', 'Real Deal'][li], rosterSettings: { lineupSlotCounts: { 0: 1, 2: 2, 4: 2, 6: 1, 23: 1, 16: 1, 17: 1, 20: 7, 21: 1 } }, scoringSettings: { scoringItems: [{ statId: 53, points: 1 }] }, scheduleSettings: { matchupPeriodCount: 14, playoffTeamCount: 6 }, acquisitionSettings: { isUsingAcquisitionBudget: li !== 1, acquisitionBudget: 100 } },
+    teams, schedule: [{ matchupPeriodId: week, playoffTierType: 'NONE', home: { teamId: 2, totalPoints: 12.4 }, away: { teamId: 5, totalPoints: 30.1 } },
+      ...Array.from({ length: 14 * size / 2 }, (_, k) => { const w = Math.floor(k / (size / 2)) + 1; const g = k % (size / 2); const rot = (x) => ((x + w) % size) + 1; return { matchupPeriodId: w, playoffTierType: 'NONE', home: { teamId: rot(g) }, away: { teamId: rot(size - 1 - g) } }; }).filter((g) => g.matchupPeriodId !== week)],
   };
 });
 

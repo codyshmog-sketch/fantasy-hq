@@ -28,6 +28,12 @@ http
       }
       return;
     }
+    if (req.url.startsWith('/api/alerts')) {
+      const { runAlerts } = await import('./lib/alerts.js');
+      const out = await runAlerts({ test: req.url.includes('test=1'), siteUrl: `http://localhost:${port}` }).catch((e) => ({ error: e.message }));
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(out));
+      return;
+    }
     if (req.url.startsWith('/api/context')) {
       const league = new URL(req.url, 'http://x').searchParams.get('league') || 'all';
       res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' }).end(await buildBrief(league));

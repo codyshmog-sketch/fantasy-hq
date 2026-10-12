@@ -23,6 +23,7 @@ Every player gets a points-per-game value: mostly his Sleeper PPR projections fo
    - `ESPN_S2` = your espn_s2 cookie, exactly as copied
    - `ANTHROPIC_API_KEY` (for Ask Claude) = an API key from console.anthropic.com
    - `DASHBOARD_PASSWORD` (optional) = anything; the page asks for it once per browser
+   - `NTFY_TOPIC` (optional) = a long random name, e.g. `fantasyhq-x7k2m9q4`. Turns on phone alerts: install the free ntfy app, subscribe to the same name, and the site checks your starters every morning (Vercel Cron, see `vercel.json`) and notifies you about anyone out, doubtful, questionable or on bye. Keep the name private; anyone who knows it can read the alerts.
 3. Deploy. The ESPN cookies never reach the browser; only the server function uses them.
 
 If ESPN leagues start showing "rejected the login cookies", log into ESPN again, copy a fresh `espn_s2`, and update the variable.

@@ -8,6 +8,15 @@
     },
     "api/dashboard.js": {
       "maxDuration": 60
+    },
+    "api/alerts.js": {
+      "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/alerts",
+      "schedule": "0 15 * * *"
+    }
+  ]
 }
