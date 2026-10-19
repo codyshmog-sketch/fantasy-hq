@@ -124,6 +124,15 @@ globalThis.fetch = async (url, opts = {}) => {
   if (p.startsWith('/v1/user/')) return json({ user_id: 'u_me', username: p.split('/').pop() });
   if ((m = p.match(/^\/projections\/nfl\/\d+\/(\d+)$/))) return json(proj(Number(m[1])));
   if (p.match(/^\/stats\/nfl\/\d+$/)) return json(stats);
+  if ((m = p.match(/^\/stats\/nfl\/\d+\/(\d+)$/))) {
+    const w = Number(m[1]);
+    return json(ids.filter((id) => !['K', 'DEF'].includes(players[id].position) && players[id]._bye !== w).map((id, k) => {
+      const t = TEAMS.indexOf(players[id].team);
+      const opp = TEAMS[(t + w * 3 + 1) % 32];
+      const pts = +(players[id]._ppg * (0.5 + ((k * 7 + w * 13) % 10) / 10)).toFixed(1);
+      return { player_id: id, team: players[id].team, opponent: opp, week: w, player: { position: players[id].position }, stats: { gp: 1, pts_ppr: pts, rec_tgt: players[id].position === 'WR' ? 4 + (k % 7) : players[id].position === 'TE' ? 3 + (k % 5) : players[id].position === 'RB' ? k % 4 : 0, rush_att: players[id].position === 'RB' ? 8 + (k % 12) : players[id].position === 'QB' ? 3 : 0, off_snp: 30 + (k % 35), tm_off_snp: 66 } };
+    }));
+  }
   if ((m = p.match(/^\/v1\/league\/(\d+)(\/\w+)?(\/\d+)?$/))) {
     const L = sleeperLeagues[m[1]];
     if (!m[2]) return json(L.league);

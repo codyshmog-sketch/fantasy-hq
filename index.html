@@ -90,6 +90,22 @@
   .mu-head .big { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
   table.mu td { vertical-align: top; }
   table.mu td.slot { text-align: center; color: var(--muted); font-size: 12px; width: 52px; }
+  table.ss { table-layout: fixed; }
+  table.ss th:first-child, table.ss td:first-child { width: 110px; color: var(--muted); font-weight: 500; font-size: 12px; }
+  table.ss td { vertical-align: top; }
+  table.ss td.best { color: var(--accent); font-weight: 600; }
+  @media (max-width: 600px) {
+    table.ss th:first-child, table.ss td:first-child { width: 64px; font-size: 11px; }
+    table.ss td, table.ss th { font-size: 13px; padding-left: 4px; padding-right: 4px; }
+    nav.views { flex-wrap: nowrap; overflow-x: auto; }
+    nav.views button { white-space: nowrap; flex: none; }
+  }
+  .ezy { color: var(--accent); } .tuf { color: var(--bad); }
+  .verdict { margin: 4px 0 10px; font-size: 15px; }
+  .picks { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .picks button { border: 1px solid var(--line, #ddd); background: none; border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 13px; cursor: pointer; color: inherit; }
+  .picks button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .picks button .muted { font-size: 11px; }
   #roster td.slot { color: var(--muted); font-size: 12px; width: 52px; }
   table.mu .g { display: block; font-size: 11px; color: var(--muted); }
   table.mu .p { font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -120,7 +136,7 @@
   <span class="sub" id="meta"></span>
   <button id="refresh" style="margin-left:auto">Refresh</button>
 </header>
-<nav class="views"><button data-v="home" class="on">Dashboard</button><button data-v="matchups">Matchups</button><button data-v="trades">Trade view</button></nav>
+<nav class="views"><button data-v="home" class="on">Dashboard</button><button data-v="matchups">Matchups</button><button data-v="startsit">Start/Sit</button><button data-v="trades">Trade view</button></nav>
 <dialog id="roster"><div class="dh"><b id="rtitle"></b><button id="rclose">Close</button></div><div class="db" id="rbody"></div></dialog>
 <main>
   <div id="loading">Pulling your 6 leagues…</div>
@@ -135,6 +151,7 @@
   <div id="app"></div>
   <div id="mview" hidden></div>
   <div id="tview" hidden></div>
+  <div id="sview" hidden></div>
 </main>
 <script>
 const $ = (s, el = document) => el.querySelector(s);
@@ -371,11 +388,11 @@ function setView(v) {
   renderView();
 }
 document.querySelectorAll('nav.views button').forEach((b) => (b.onclick = () => setView(b.dataset.v)));
-VIEW = ['matchups', 'trades'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home';
+VIEW = ['matchups', 'trades', 'startsit'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home';
 document.querySelectorAll('nav.views button').forEach((b) => b.classList.toggle('on', b.dataset.v === VIEW));
 window.addEventListener('hashchange', () => {
   const v = location.hash.slice(1);
-  setView(['matchups', 'trades'].includes(v) ? v : 'home');
+  setView(['matchups', 'trades', 'startsit'].includes(v) ? v : 'home');
 });
 
 function renderView() {
@@ -383,9 +400,11 @@ function renderView() {
   $('#ask').hidden = VIEW !== 'home' || !DATA;
   $('#mview').hidden = VIEW !== 'matchups';
   $('#tview').hidden = VIEW !== 'trades';
+  $('#sview').hidden = VIEW !== 'startsit';
   if (!DATA) return;
   if (VIEW === 'matchups') renderMatchups();
   if (VIEW === 'trades') renderTrades();
+  if (VIEW === 'startsit') renderStartSit();
 }
 
 function switcher(list, idx, id) {
@@ -453,6 +472,81 @@ function renderTrades() {
     <div class="muted" style="margin-bottom:10px">Each position lists players best to worst with their projected points per game. Bold = starting. The number under each position is that team's league rank there. Red rows are weak spots (bottom 30% of the league); "Deep at" means their first bench player would start for most teams. Teams that fit a trade with you are listed first.</div>
     <div class="tgrid">${teams.map(card).join('')}</div>`;
   wireSwitcher(root, list, () => TV, (v) => (TV = v), renderTrades);
+}
+
+// ---- Start/Sit view ----
+let SS = 0;
+const SS_PICK = {};
+function ssScore(p) {
+  // Projection (already discounted for injury), nudged by matchup.
+  const m = p.matchup;
+  return (p.adj || 0) + (m ? (m.rank <= 8 ? 1 : m.rank > m.of - 8 ? -1 : 0) : 0);
+}
+function ssVerdict(ps) {
+  const sorted = [...ps].sort((a, b) => ssScore(b) - ssScore(a));
+  const [a, b] = sorted;
+  if (!b) return '';
+  const why = [];
+  const d = (a.adj || 0) - (b.adj || 0);
+  if (d >= 0.5) why.push(`projects ${num(d)} more`);
+  if (a.matchup && b.matchup && a.matchup.rank < b.matchup.rank - 5) why.push(`easier matchup (${esc(a.game?.opp)} is ${ordinal(a.matchup.rank)} most generous to ${esc(a.pos)}s)`);
+  if (b.injury && !a.injury) why.push(`${esc(b.name)} is ${esc(b.injury)}`);
+  const al = a.last.length ? a.last.reduce((s, x) => s + x.pts, 0) / a.last.length : 0;
+  const bl = b.last.length ? b.last.reduce((s, x) => s + x.pts, 0) / b.last.length : 0;
+  if (al - bl >= 3) why.push(`hotter lately (${num(al)} vs ${num(bl)} over his last ${a.last.length})`);
+  const close = ssScore(a) - ssScore(b) < 1;
+  return `<div class="verdict">${close ? '🤏 Coin flip, lean' : '✅ Start'} <b>${esc(a.name)}</b>${why.length ? `: ${why.join(', ')}` : ''}.</div>`;
+}
+function ssTable(ps, starting) {
+  const best = (vals, low = false) => { const v = vals.filter((x) => x != null); if (v.length < 2) return null; return low ? Math.min(...v) : Math.max(...v); };
+  const row = (label, cells, vals, low) => { const b = vals ? best(vals, low) : null; return `<tr><td>${label}</td>${cells.map((c, i) => `<td class="${vals && vals[i] != null && vals[i] === b ? 'best' : ''}">${c}</td>`).join('')}</tr>`; };
+  const avgLast = (p) => (p.last.length ? p.last.reduce((s, x) => s + x.pts, 0) / p.last.length : null);
+  const mu = (p) => {
+    if (!p.game) return '<span class="muted">Bye</span>';
+    const m = p.matchup;
+    const cls = m ? (m.rank <= 8 ? 'ezy' : m.rank > m.of - 8 ? 'tuf' : '') : '';
+    return `vs ${esc(p.game.opp)}${m ? `<br><span class="${cls}">${m.rank <= 8 ? 'Easy' : m.rank > m.of - 8 ? 'Tough' : 'Average'} (${ordinal(m.rank)})</span><br><span class="muted">${num(m.avg)} pts/g allowed</span>` : ''}<br><span class="muted">${p.game.state === 'pre' ? esc(p.game.label) : 'Game started'}</span>`;
+  };
+  const usage = (p) => [p.tgt != null ? `${num(p.tgt)} targets` : '', p.att != null ? `${num(p.att)} carries` : '', p.snap != null ? `${p.snap}% snaps` : ''].filter(Boolean).join('<br>') || '<span class="muted">–</span>';
+  return `<table class="ss"><tr><th></th>${ps.map((p) => `<th>${esc(p.name)}<div class="muted">${esc(p.pos)} · ${esc(p.nfl)}${starting.has(p.id) ? ' · starting' : ' · bench'}</div>${p.injury ? `<span class="inj">${esc(p.injury)}</span>` : ''}</th>`).join('')}</tr>
+    ${row('This week', ps.map((p) => `${num(p.adj)}${p.injury && p.adj !== p.proj ? ` <span class="muted">(${num(p.proj)} before injury risk)</span>` : ''}`), ps.map((p) => p.adj))}
+    ${row('Matchup', ps.map(mu), ps.map((p) => (p.matchup ? -p.matchup.rank : null)))}
+    ${row('Last 3 games', ps.map((p) => (p.last.length ? `${p.last.map((x) => num(x.pts)).join(', ')}<br><span class="muted">avg ${num(avgLast(p))}</span>` : '<span class="muted">–</span>')), ps.map(avgLast))}
+    ${row('Usage (last 3)', ps.map(usage))}
+    ${row('Season avg', ps.map((p) => num(p.ppg)), ps.map((p) => p.ppg))}
+    ${row('Rest of season', ps.map((p) => `${num(p.value)}/wk`), ps.map((p) => p.value))}
+    ${row('Latest news', ps.map((p) => (p.news ? `${esc(p.news.headline)} <span class="muted">${ago(p.news.when)}</span>` : '<span class="muted">Nothing new</span>')))}
+  </table>`;
+}
+function renderStartSit() {
+  const list = okLeagues().filter((L) => L.startSit);
+  const root = $('#sview');
+  if (!list.length) { root.innerHTML = '<div class="panel muted">No Start/Sit data yet.</div>'; return; }
+  SS = Math.min(SS, list.length - 1);
+  const L = list[SS];
+  const S = L.startSit;
+  const byId = new Map(S.players.map((p) => [String(p.id), p]));
+  const starting = new Set(S.startingIds.map(String));
+  const pick = (SS_PICK[L.id] ||= []);
+  let h = switcher(list, SS, 'ss');
+  h += '<div class="panel"><h4 style="margin-top:0">Close calls this week</h4>';
+  h += S.calls.length
+    ? S.calls.map((c) => { const ps = c.ids.map((id) => byId.get(String(id))).filter(Boolean); return `<div style="margin:10px 0 18px"><div class="muted">${esc(c.slot)} spot</div>${ssVerdict(ps)}${ssTable(ps, starting)}</div>`; }).join('')
+    : '<div class="ok">✓ No close calls: nobody on your bench projects within 3 points of a starter whose game is still ahead.</div>';
+  h += '</div><div class="panel"><h4 style="margin-top:0">Compare any of your players</h4><div class="muted">Tap two or three players.</div><div class="picks">';
+  for (const pos of ['QB', 'RB', 'WR', 'TE']) for (const p of S.players.filter((x) => x.pos === pos)) h += `<button data-pick="${esc(p.id)}" class="${pick.includes(String(p.id)) ? 'on' : ''}">${esc(p.name)} <span class="muted">${esc(p.pos)}</span></button>`;
+  h += '</div>';
+  const chosen = pick.map((id) => byId.get(id)).filter(Boolean);
+  if (chosen.length >= 2) h += ssVerdict(chosen) + ssTable(chosen, starting);
+  h += '<div class="muted" style="margin-top:8px">Matchup ranks how many PPR points that defense has allowed per game to the position this season (1st = gives up the most, easiest). Green = best in each row.</div></div>';
+  root.innerHTML = h;
+  wireSwitcher(root, list, () => SS, (v) => (SS = v), renderStartSit);
+  root.querySelectorAll('[data-pick]').forEach((b) => (b.onclick = () => {
+    const id = b.dataset.pick;
+    const i = pick.indexOf(id);
+    if (i >= 0) pick.splice(i, 1); else { pick.push(id); if (pick.length > 3) pick.shift(); }
+    renderStartSit();
+  }));
 }
 
 // Calls our server, asking for the site password once if one is set.
