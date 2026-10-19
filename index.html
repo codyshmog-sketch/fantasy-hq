@@ -487,35 +487,26 @@ function renderExposure() {
   const root = $('#eview');
   const E = DATA.exposure;
   if (!E) { root.innerHTML = '<div class="panel muted">Exposure data isn\'t available right now.</div>'; return; }
-  const owned = E.players.filter((r) => r.own.length);
+  // Only players who matter in 2+ leagues at once.
+  const owned = E.players.filter((r) => r.start.length >= 2);
   const short = (n) => esc(n.length > 18 ? n.slice(0, 16) + '…' : n);
   let h = '';
-  // Heads up: injured guys you're starting, and players you start in one league but face in another.
-  const risk = owned.filter((r) => r.risk);
-  const conflicts = owned.filter((r) => r.start.length && r.face.length);
-  if (risk.length || conflicts.length) {
-    h += '<div class="panel"><h4 style="margin-top:0">Heads up</h4>';
-    h += risk.map((r) => `<div class="alert bad">${esc(r.name)} is ${esc(r.injury)} and in your lineup in ${r.start.length} league${r.start.length > 1 ? 's' : ''} (${r.start.map(esc).join(', ')})</div>`).join('');
-    h += conflicts.slice(0, 5).map((r) => `<div class="alert warn">You start ${esc(r.name)} in ${r.start.map(esc).join(', ')} but face him in ${r.face.map(esc).join(', ')}, so his points partly cancel out</div>`).join('');
-    if (conflicts.length > 5) h += `<div class="muted">…and ${conflicts.length - 5} more like this. Look for the red "facing" notes below.</div>`;
-    h += '</div>';
-  }
   if (E.teams.length) {
     h += `<div class="panel"><h4 style="margin-top:0">Games you're riding on</h4><div class="muted">Your starters across all leagues, by NFL team.</div><div class="picks">${E.teams
       .map((t) => `<span class="chip">${esc(t.nfl)} · ${t.starts} start${t.starts > 1 ? 's' : ''}${t.game ? ` <span class="muted">vs ${esc(t.game.opp)}, ${esc(t.game.label)}</span>` : ''}</span>`).join('')}</div></div>`;
   }
   const POSL = ['All', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
   const shown = owned.filter((r) => EX_POS === 'All' || r.pos === EX_POS);
-  h += `<div class="panel"><h4 style="margin-top:0">Everyone you own (${owned.length} players across ${E.leagues} leagues)</h4>
+  h += `<div class="panel"><h4 style="margin-top:0">Starting in 2+ leagues (${owned.length})</h4>
     <div class="picks">${POSL.map((p) => `<button data-expos="${p}" class="${EX_POS === p ? 'on' : ''}">${p}</button>`).join('')}</div>
-    <table><tr><th>Player</th><th class="n">This wk</th><th>Leagues</th></tr>${shown.map((r) => `<tr class="${r.risk ? 'risk' : ''}">
+    ${shown.length ? '' : '<div class="muted">Nobody at this position.</div>'}<table><tr><th>Player</th><th class="n">This wk</th><th>Leagues</th></tr>${shown.map((r) => `<tr class="${r.risk ? 'risk' : ''}">
       <td>${player(r)}<div class="muted">${r.game ? `vs ${esc(r.game.opp)} · ${esc(r.game.label)}` : 'Bye'}</div></td>
       <td class="n">${num(r.proj)}</td>
-      <td><b>${r.own.length}</b> owned · <b>${r.start.length}</b> starting${r.face.length ? ` · <span class="tuf">facing in ${r.face.length}</span>` : ''}<br>${r.own.map((n) => `<span class="lg ${r.start.includes(n) ? 'st' : ''}">${short(n)}</span>`).join('')}</td></tr>`).join('')}</table>
-    <div class="muted" style="margin-top:6px">Green tags = leagues where he's in your starting lineup. Red rows = injured and still starting somewhere.</div></div>`;
-  const facing = E.players.filter((r) => r.face.length && !r.own.length).sort((a, b) => b.face.length - a.face.length || (b.proj || 0) - (a.proj || 0));
+      <td><b>${r.own.length}</b> owned · <b>${r.start.length}</b> starting<br>${r.own.map((n) => `<span class="lg ${r.start.includes(n) ? 'st' : ''}">${short(n)}</span>`).join('')}</td></tr>`).join('')}</table>
+    <div class="muted" style="margin-top:6px">Green tags = leagues where he's in your starting lineup.</div></div>`;
+  const facing = E.players.filter((r) => r.face.length >= 2).sort((a, b) => b.face.length - a.face.length || (b.proj || 0) - (a.proj || 0));
   if (facing.length) {
-    h += `<div class="panel"><h4 style="margin-top:0">Who you're up against this week</h4><div class="muted">Your opponents' starters, most-faced first. Root against these guys.</div>
+    h += `<div class="panel"><h4 style="margin-top:0">Facing in 2+ leagues</h4><div class="muted">Opponents' starters you're up against more than once this week.</div>
       <table>${facing.slice(0, 25).map((r) => `<tr><td>${player(r)}</td><td class="n">${num(r.proj)}</td><td>${r.face.map((n) => `<span class="lg vs">${short(n)}</span>`).join('')}</td></tr>`).join('')}</table></div>`;
   }
   root.innerHTML = h;
