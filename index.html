@@ -277,7 +277,7 @@ function todo(data) {
   const trades = data.leagues.reduce((s, L) => s + (L.trades?.length || 0), 0);
   return `<div class="todo"><h2>${items.length ? 'To do before kickoff' : '✓ All lineups look good'}</h2>${items.length ? `<ul>${items.map((i) => `<li>${i}</li>`).join('')}</ul>` : ''}
     <div class="muted" style="margin-top:6px">${trades} trade idea${trades === 1 ? '' : 's'} across your leagues. Projections are PPR from Sleeper, ESPN's own for ESPN lineups.</div>
-    <div class="muted" style="margin-top:6px">📱 Phone alerts: ${data.alertsEnabled ? 'on, checked every morning <button class="askbtn" id="testalert">Send a test alert</button>' : 'off (add NTFY_TOPIC in Vercel to turn on)'}</div></div>`;
+    <div class="muted" style="margin-top:6px">📱 Phone alerts: ${data.alertsEnabled ? 'on, checked every morning <button class="askbtn" id="testalert">Send a test alert</button>' : 'off. The server doesn\'t see an NTFY_TOPIC setting yet (check the name in Vercel, then redeploy)'}</div></div>`;
 }
 document.addEventListener('click', async (e) => {
   if (e.target.id !== 'testalert') return;
