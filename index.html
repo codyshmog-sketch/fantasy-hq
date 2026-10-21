@@ -104,6 +104,10 @@
   .lg.st { background: var(--accent); color: #fff; }
   .lg.vs { background: var(--bad); color: #fff; }
   tr.risk td { background: rgba(220, 38, 38, .07); }
+  .claim { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line, rgba(127,127,127,.15)); }
+  .claim:first-of-type { border-top: 0; }
+  .claim .ic { width: 18px; flex: none; }
+  .claim .when { margin-left: auto; white-space: nowrap; font-size: 12px; }
   .ezy { color: var(--accent); } .tuf { color: var(--bad); }
   .verdict { margin: 4px 0 10px; font-size: 15px; }
   .picks { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
@@ -140,7 +144,7 @@
   <span class="sub" id="meta"></span>
   <button id="refresh" style="margin-left:auto">Refresh</button>
 </header>
-<nav class="views"><button data-v="home" class="on">Dashboard</button><button data-v="matchups">Matchups</button><button data-v="startsit">Start/Sit</button><button data-v="exposure">Exposure</button><button data-v="trades">Trade view</button></nav>
+<nav class="views"><button data-v="home" class="on">Dashboard</button><button data-v="matchups">Matchups</button><button data-v="startsit">Start/Sit</button><button data-v="exposure">Exposure</button><button data-v="claims">Waiver recap</button><button data-v="trades">Trade view</button></nav>
 <dialog id="roster"><div class="dh"><b id="rtitle"></b><button id="rclose">Close</button></div><div class="db" id="rbody"></div></dialog>
 <main>
   <div id="loading">Pulling your 6 leagues…</div>
@@ -157,6 +161,7 @@
   <div id="tview" hidden></div>
   <div id="sview" hidden></div>
   <div id="eview" hidden></div>
+  <div id="cview" hidden></div>
 </main>
 <script>
 const $ = (s, el = document) => el.querySelector(s);
@@ -393,11 +398,11 @@ function setView(v) {
   renderView();
 }
 document.querySelectorAll('nav.views button').forEach((b) => (b.onclick = () => setView(b.dataset.v)));
-VIEW = ['matchups', 'trades', 'startsit', 'exposure'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home';
+VIEW = ['matchups', 'trades', 'startsit', 'exposure', 'claims'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home';
 document.querySelectorAll('nav.views button').forEach((b) => b.classList.toggle('on', b.dataset.v === VIEW));
 window.addEventListener('hashchange', () => {
   const v = location.hash.slice(1);
-  setView(['matchups', 'trades', 'startsit', 'exposure'].includes(v) ? v : 'home');
+  setView(['matchups', 'trades', 'startsit', 'exposure', 'claims'].includes(v) ? v : 'home');
 });
 
 function renderView() {
@@ -407,11 +412,13 @@ function renderView() {
   $('#tview').hidden = VIEW !== 'trades';
   $('#sview').hidden = VIEW !== 'startsit';
   $('#eview').hidden = VIEW !== 'exposure';
+  $('#cview').hidden = VIEW !== 'claims';
   if (!DATA) return;
   if (VIEW === 'matchups') renderMatchups();
   if (VIEW === 'trades') renderTrades();
   if (VIEW === 'startsit') renderStartSit();
   if (VIEW === 'exposure') renderExposure();
+  if (VIEW === 'claims') renderClaims();
 }
 
 function switcher(list, idx, id) {
@@ -479,6 +486,31 @@ function renderTrades() {
     <div class="muted" style="margin-bottom:10px">Each position lists players best to worst with their projected points per game. Bold = starting. The number under each position is that team's league rank there. Red rows are weak spots (bottom 30% of the league); "Deep at" means their first bench player would start for most teams. Teams that fit a trade with you are listed first.</div>
     <div class="tgrid">${teams.map(card).join('')}</div>`;
   wireSwitcher(root, list, () => TV, (v) => (TV = v), renderTrades);
+}
+
+// ---- Waiver recap view: every claim you made in the last two weeks, all leagues on one page ----
+function renderClaims() {
+  const root = $('#cview');
+  const leagues = okLeagues();
+  const all = leagues.flatMap((L) => L.claims || []);
+  const won = all.filter((c) => c.won).length;
+  let h = `<div class="panel"><h4 style="margin-top:0">Your waiver claims, last two weeks</h4><div class="muted">${all.length ? `${all.length} claim${all.length > 1 ? 's' : ''} across your leagues: <b class="up">${won} won</b>, <b class="down">${all.length - won} lost</b>.` : 'No waiver claims in any league in the last two weeks.'}</div></div>`;
+  const quiet = [];
+  for (const L of leagues) {
+    const cs = L.claims || [];
+    if (!cs.length) { quiet.push(L.name); continue; }
+    const faab = L.waiverPlan?.faab;
+    const money = (b) => (faab && b != null ? `$${b}` : '');
+    h += `<div class="panel"><h4 style="margin-top:0">${esc(L.name)} <span class="tag ${L.platform}">${L.platform}</span></h4>${cs.map((c) => {
+      const pl = `<b>${esc(c.player.name)}</b> <span class="muted">${esc(c.player.pos)}${c.player.nfl ? ' · ' + esc(c.player.nfl) : ''}</span>`;
+      const detail = c.won
+        ? [money(c.bid) && `for ${money(c.bid)}`, c.drop && `dropped ${esc(c.drop)}`].filter(Boolean).join(' · ')
+        : [money(c.bid) && `your bid ${money(c.bid)}`, c.winner ? `went to ${esc(c.winner.team)}${money(c.winner.bid) ? ` for ${money(c.winner.bid)}` : ''}` : esc(c.reason || "didn't go through")].filter(Boolean).join(' · ');
+      return `<div class="claim"><span class="ic">${c.won ? '✅' : '❌'}</span><span>${c.won ? 'Added' : 'Missed'} ${pl}${detail ? `<div class="muted">${detail}</div>` : ''}</span><span class="when muted">${c.week ? `Wk ${c.week} · ` : ''}${ago(c.when)}</span></div>`;
+    }).join('')}</div>`;
+  }
+  if (quiet.length && all.length) h += `<div class="muted" style="padding:0 4px">No claims in ${quiet.map(esc).join(', ')}.</div>`;
+  root.innerHTML = h;
 }
 
 // ---- Exposure view ----

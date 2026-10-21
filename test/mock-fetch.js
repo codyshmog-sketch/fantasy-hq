@@ -76,7 +76,11 @@ LEAGUE_IDS.sleeper.forEach((id, li) => {
     rosters: rosters.map((r, i) => ({ roster_id: i + 1, owner_id: `u${i}`, co_owners: li === 2 && i === 2 ? ['u_me'] : null, players: r, starters: startersFor(r), settings: { wins: Math.floor(rnd() * 5), losses: 2, fpts: 400 + Math.floor(rnd() * 200), waiver_budget_used: 17, waiver_position: i + 1 } })),
     picks, draft: { settings: { rounds: 15 } },
     matchups: rosters.map((r, i) => ({ roster_id: i + 1, matchup_id: Math.floor(i / 2) + 1, points: +(rnd() * 30).toFixed(2), players_points: Object.fromEntries(r.map((pid) => [pid, TEAMS.indexOf(players[pid].team) % 8 < 2 ? +(players[pid]._ppg * rnd() * 1.4).toFixed(1) : TEAMS.indexOf(players[pid].team) % 8 < 4 ? +(players[pid]._ppg * 0.5).toFixed(1) : 0])) })),
-    tx: [{ type: 'trade', status: 'complete', created: Date.now() - 864e5, status_updated: Date.now() - 864e5, roster_ids: [1, 4], adds: { [rosters[0][3]]: 4, [rosters[3][4]]: 1 } }, { type: 'free_agent', status: 'complete', created: Date.now() - 3e6, status_updated: Date.now() - 3e6, roster_ids: [3], adds: { [ids[200]]: 3 }, drops: { [rosters[2][15]]: 3 } }],
+    tx: [
+      { type: 'waiver', status: 'complete', leg: week, created: Date.now() - 2e8, status_updated: Date.now() - 2e8, roster_ids: [3], adds: { [ids[210]]: 3 }, drops: { [rosters[2][14]]: 3 }, settings: { waiver_bid: 12 }, metadata: { notes: 'Your waiver claim was processed successfully!' } },
+      { type: 'waiver', status: 'failed', leg: week, created: Date.now() - 2e8, status_updated: Date.now() - 2e8, roster_ids: [3], adds: { [ids[211]]: 3 }, drops: null, settings: { waiver_bid: 8 }, metadata: { notes: 'This player was claimed by another owner.' } },
+      { type: 'waiver', status: 'complete', leg: week, created: Date.now() - 2e8, status_updated: Date.now() - 2e8, roster_ids: [5], adds: { [ids[211]]: 5 }, drops: null, settings: { waiver_bid: 21 }, metadata: {} },
+      { type: 'trade', status: 'complete', created: Date.now() - 864e5, status_updated: Date.now() - 864e5, roster_ids: [1, 4], adds: { [rosters[0][3]]: 4, [rosters[3][4]]: 1 } }, { type: 'free_agent', status: 'complete', created: Date.now() - 3e6, status_updated: Date.now() - 3e6, roster_ids: [3], adds: { [ids[200]]: 3 }, drops: { [rosters[2][15]]: 3 } }],
   };
   // Make "me" own roster 3 (index 2) in leagues 0/1.
   if (li < 2) sleeperLeagues[id].rosters[2].owner_id = 'u_me';
@@ -144,7 +148,14 @@ globalThis.fetch = async (url, opts = {}) => {
   if ((m = p.match(/^\/v1\/draft\/d(\d+)(\/picks)?$/))) return json(m[2] ? sleeperLeagues[m[1]].picks : sleeperLeagues[m[1]].draft);
   if ((m = p.match(/leagues\/(\d+)$/))) {
     if (!String(opts.headers?.cookie).includes('espn_s2=')) return new Response('unauthorized', { status: 401 });
-    if (u.search.includes('mTransactions2')) return json({ transactions: [] });
+    if (u.search.includes('mTransactions2')) {
+      const pid = (k) => Number(players[ids[k]].espn_id);
+      return json({ transactions: m[1] === '880282876' ? [] : [
+        { id: 'a' + m[1], type: 'WAIVER', status: 'EXECUTED', teamId: 2, bidAmount: 5, processDate: Date.now() - 1.5e8, scoringPeriodId: week, items: [{ type: 'ADD', playerId: pid(220), toTeamId: 2 }, { type: 'DROP', playerId: pid(221), fromTeamId: 2 }] },
+        { id: 'b' + m[1], type: 'WAIVER', status: 'FAILED_INVALIDPLAYERSOURCE', teamId: 2, bidAmount: 3, processDate: Date.now() - 1.5e8, scoringPeriodId: week, items: [{ type: 'ADD', playerId: pid(222), toTeamId: 2 }] },
+        { id: 'c' + m[1], type: 'WAIVER', status: 'EXECUTED', teamId: 4, bidAmount: 9, processDate: Date.now() - 1.5e8, scoringPeriodId: week, items: [{ type: 'ADD', playerId: pid(222), toTeamId: 4 }] },
+      ] });
+    }
     return json(espnLeagues[m[1]]);
   }
   return new Response('not mocked: ' + url, { status: 404 });
